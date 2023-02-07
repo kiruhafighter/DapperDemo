@@ -6,6 +6,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace DataLayer
 {
@@ -20,12 +21,18 @@ namespace DataLayer
 
         public Contact Add(Contact contact)
         {
-            throw new NotImplementedException();
+            var sql =
+                "Insert Into Contacts (FirstName, LastName, Email, Company, Title) Values (@FirstName, @LastName, @Email, @Company, @Title); " +
+                "Select Cast (SCOPE_IDENTITY() as int)";
+            var id = this.db.Query<int>(sql, contact).Single();
+            contact.Id = id;
+            return contact;
         }
+
 
         public Contact Find(int id)
         {
-            throw new NotImplementedException();
+            return this.db.Query<Contact>("Select * From Contacts Where Id = @Id", new { Id = id }).SingleOrDefault();
         }
 
         public List<Contact> GetAll()
@@ -37,14 +44,99 @@ namespace DataLayer
             return this.db.Query<Contact>("Select * from Contacts").ToList();
         }
 
+        public Contact GetFullContact(int id)
+        {
+            var sql =
+                "Select * from Contacts Where Id=@Id; " +
+                "Select * from Addresses Where ContactId=@Id";
+            using(var multipleResults = this.db.QueryMultiple(sql, new { Id = id }))
+            {
+                var contact = multipleResults.Read<Contact>().SingleOrDefault();
+
+                var addresses = multipleResults.Read<Address>().ToList();
+                if(contact != null && addresses != null)
+                {
+                    contact.Addresses.AddRange(addresses);
+                }
+
+                return contact;
+            }
+        }
+
+        public void Save (Contact contact)
+        {
+            using var txScope = new TransactionScope();
+            {
+                if (contact.IsNew)
+                {
+                    this.Add(contact);
+                }
+                else
+                {
+                    this.Update(contact);
+                }
+
+                foreach (var addr in contact.Addresses.Where(a => !a.IsDeleted))
+                {
+                    addr.ContactId = contact.Id;
+
+                    if (addr.IsNew)
+                    {
+                        this.Add(addr);
+                    }
+                    else
+                    {
+                        this.Update(addr);
+                    }
+                }
+
+                foreach (var addr in contact.Addresses.Where(a => a.IsDeleted))
+                {
+                    this.db.Execute("Delete From Addresses Where Id=@Id", new { addr.Id });
+                }
+                txScope.Complete();
+            }
+        }
+
+        public Address Add(Address address)
+        {
+            var sql =
+                "INSERT INTO Addresses (ContactId, AddressType, StreetAddress, City, StateId, PostalCode) VALUES(@ContactId, @AddressType, @StreetAddress, @City, @StateId, @PostalCode); " +
+                "SELECT CAST(SCOPE_IDENTITY() as int)";
+            var id = this.db.Query<int>(sql, address).Single();
+            address.Id = id;
+            return address;
+        }
+
+        public Address Update(Address address)
+        {
+            this.db.Execute("UPDATE Addresses " +
+                "SET AddressType = @AddressType, " +
+                "    StreetAddress = @StreetAddress, " +
+                "    City = @City, " +
+                "    StateId = @StateId, " +
+                "    PostalCode = @PostalCode " +
+                "WHERE Id = @Id", address);
+            return address;
+        }
+
         public void Remove(int id)
         {
-            throw new NotImplementedException();
+            this.db.Execute("Delete From Contacts Where Id = @Id", new { id });
         }
 
         public Contact Update(Contact contact)
         {
-            throw new NotImplementedException();
+            var sql =
+                "Update Contacts " +
+                "Set FirstName = @FirstName, " +
+                "    LastName  = @LastName, " +
+                "    Email     = @Email, " +
+                "    Company   = @Company, " +
+                "    Title     = @Title " +
+                "Where Id = @Id";
+            this.db.Execute(sql, contact);
+            return contact;
         }
     }
 }
