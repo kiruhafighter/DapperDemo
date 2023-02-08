@@ -14,18 +14,95 @@ namespace Runner
 
             //Get_all_should_return_6_results();
 
-            var id = Insert_should_assign_identity_to_new_entity();
+            //var id = Insert_should_assign_identity_to_new_entity();
 
-            Find_should_retrieve_existing_entity(id);
+            //Find_should_retrieve_existing_entity(id);
 
-            Modify_should_update_existing_entity(id);
+            //Modify_should_update_existing_entity(id);
 
-            Delete_should_remove_entity(id);
+            //Delete_should_remove_entity(id);
 
 
             //var repository = CreateRepository();
             //var mj = repository.GetFullContact(1);
             //mj.Output();
+
+            //Dynamic_support_should_produce_correct_results();
+            //Bulk_insert_should_insert_4_rows();
+
+            Get_all_should_return_6_results_with_addresses();
+        }
+
+
+        static void Get_all_should_return_6_results_with_addresses()
+        {
+            var repository = CreateRepositoryEx();
+
+            // act
+            var contacts = repository.GetAllContactsWithAddresses();
+
+            // assert
+            Console.WriteLine($"Count: {contacts.Count}");
+            contacts.Output();
+        }
+
+        static void GetIllinoisAddresses()
+        {
+            // arrange
+            var repository = CreateRepositoryEx();
+
+            // act
+            var addresses = repository.GetAddressesByState(17);
+
+            // assert
+            Debug.Assert(addresses.Count == 2);
+            addresses.Output();
+        }
+
+        static void Bulk_insert_should_insert_4_rows()
+        {
+            // arrange
+            var repository = CreateRepositoryEx();
+            var contacts = new List<Contact>
+            {
+                new Contact { FirstName = "Charles", LastName = "Barkley" },
+                new Contact { FirstName = "Scottie", LastName = "Pippen" },
+                new Contact { FirstName = "Tim", LastName = "Duncan" },
+                new Contact { FirstName = "Patrick", LastName = "Ewing" }
+            };
+
+            // act
+            var rowsAffected = repository.BulkInsertContacts(contacts);
+
+            // assert
+            Console.WriteLine($"Rows inserted: {rowsAffected}");
+            Debug.Assert(rowsAffected == 4);
+        }
+
+        static void List_support_should_produce_correct_results()
+        {
+            // arrange
+            var repository = CreateRepositoryEx();
+
+            // act
+            var contacts = repository.GetContactsById(1, 2, 4);
+
+            // assert
+            Debug.Assert(contacts.Count == 3);
+            contacts.Output();
+        }
+
+        static void Dynamic_support_should_produce_correct_results()
+        {
+            // arrange
+            var repository = CreateRepositoryEx();
+
+            // act
+            var contacts = repository.GetDynamicContactsById(1, 2, 4);
+
+            // assert
+            Debug.Assert(contacts.Count == 3);
+            contacts.Output();
         }
 
         static void Get_all_should_return_6_results()
@@ -143,10 +220,18 @@ namespace Runner
 
         private static IContactRepository CreateRepository()
         {
-            return new ContactRepository("Server=(LocalDB)\\MSSQLLocalDB;Database=ContactsDB;Trusted_Connection=True;TrustServerCertificate=True");
+            return new ContactRepositorySP("Server=(LocalDB)\\MSSQLLocalDB;Database=ContactsDB;Trusted_Connection=True;TrustServerCertificate=True");
+
+            //return new ContactRepository("Server=(LocalDB)\\MSSQLLocalDB;Database=ContactsDB;Trusted_Connection=True;TrustServerCertificate=True");
+
             //return new ContactRepositoryContrib("Server=(LocalDB)\\MSSQLLocalDB;Database=ContactsDB;Trusted_Connection=True;TrustServerCertificate=True");
 
             //return new ContactRepository(config.GetConnectionString("DefaultConnection")!); //Does not see the connection string ???
+        }
+
+        private static ContactRepositoryEx CreateRepositoryEx()
+        {
+            return new ContactRepositoryEx("Server=(LocalDB)\\MSSQLLocalDB;Database=ContactsDB;Trusted_Connection=True;TrustServerCertificate=True");
         }
     }
 }
